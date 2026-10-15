@@ -1,49 +1,29 @@
 package com.example;
 
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.ingame.HandledScreen;
-import net.minecraft.client.option.KeyBinding;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.component.type.ContainerComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.slot.Slot;
 import net.minecraft.text.Text;
 import net.minecraft.util.collection.DefaultedList;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class ExampleModClient implements ClientModInitializer {
-    private static KeyBinding markKey;
-    private static KeyBinding exportKey;
     private static final List<ItemStack> markedItems = new ArrayList<>();
 
     @Override
     public void onInitializeClient() {
-        // Tasten registrieren: X zum Markieren, V zum Exportieren
-        markKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.shulkermarker.mark",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_X,
-                "category.shulkermarker"
-        ));
-
-        exportKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.shulkermarker.export",
-                InputUtil.Type.KEYSYM,
-                GLFW.GLFW_KEY_V,
-                "category.shulkermarker"
-        ));
-
-        ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (markKey.wasPressed()) {
+        // Registrierung der Logik über den Fabric-Client-Tick
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            // Taste X abfragen (GLFW_KEY_X = 88)
+            if (net.minecraft.client.util.InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow().getHandle(), 88)) {
                 handleItemMarking(client);
             }
-            if (exportKey.wasPressed()) {
+            // Taste V abfragen (GLFW_KEY_V = 86)
+            if (net.minecraft.client.util.InputUtil.isKeyPressed(MinecraftClient.getInstance().getWindow().getHandle(), 86)) {
                 handleShulkerExport(client);
             }
         });
@@ -81,9 +61,22 @@ public class ExampleModClient implements ClientModInitializer {
             containerInv.set(i, markedItems.get(i));
         }
 
-        ContainerComponent containerComponent = ContainerComponent.fromStacks(containerInv);
-        String command = "/give @p purple_shulker_box[container=" + containerComponent.toString() + "]";
-        client.keyboard.setClipboard(command);
+        // Generiert den Give-Befehl über die standardisierte NBT-Block-Komponente von Minecraft 1.21
+        StringBuilder nbtBuilder = new StringBuilder();
+        nbtBuilder.append("/give @p purple_shulker_box{BlockEntityTag:{Items:[");
+        for (int i = 0; i < containerInv.size(); i++) {
+            ItemStack stack = containerInv.get(i);
+            if (!stack.isEmpty()) {
+                String id = net.minecraft.registry.Registries.ITEM.getId(stack.getItem()).toString();
+                nbtBuilder.append("{Slot:").append(i).append("b,id:\"").append(id).append("\",Count:").append(stack.getCount()).append("b},");
+            }
+        }
+        if (nbtBuilder.charAt(nbtBuilder.length() - 1) == ',') {
+            nbtBuilder.deleteCharAt(nbtBuilder.length() - 1);
+        }
+        nbtBuilder.append("]}} 1");
+
+        client.keyboard.setClipboard(nbtBuilder.toString());
 
         if (client.player != null) {
             client.player.sendMessage(Text.literal("§b§lBefehl für Shulker Box in die Zwischenablage kopiert!"), false);
