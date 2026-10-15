@@ -29,11 +29,8 @@ jobs:
     - name: Setup Gradle Environment
       uses: gradle/actions/setup-gradle@v4
       
-    - name: Pre-compile Minecraft Sources
-      run: ./gradlew genSources --no-daemon
-      
-    - name: Build Fabric Mod
-      run: ./gradlew build --no-daemon
+    - name: Core Compile and Build
+      run: ./gradlew genSources build --no-daemon
       
     - name: Upload artifact
       uses: actions/upload-artifact@v4
